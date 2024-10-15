@@ -41,14 +41,42 @@ export const highest = (
 /**
  * Converts batch payload to a list payload
  */
+// export const batchToListPayload = <P>(payload: BatchPayload<Record<string, P> | readonly P[]>): ListPayload<P> => {
+//   // eslint-disable-next-line @typescript-eslint/naming-convention
+//   const { result: { result, result_total, result_error, result_next }, time } = payload
+
+//   const flattenResult = Object.entries(result).reduce<readonly P[]>(
+//     // @ts-expect-error ignore this for now
+//     (flatten, [_key, r]) => !r ? flatten : [...flatten, ...r]
+//     , [])
+
+//   return {
+//     error: Object.values(result_error).join('\n'),
+//     next: highest(result_next),
+//     result: flattenResult,
+//     // @todo Not accurate, we do not care
+//     time,
+//     total: highest(result_total) ?? 0
+//   }
+// }
 export const batchToListPayload = <P>(payload: BatchPayload<Record<string, P> | readonly P[]>): ListPayload<P> => {
   // eslint-disable-next-line @typescript-eslint/naming-convention
   const { result: { result, result_total, result_error, result_next }, time } = payload
 
-  const flattenResult = Object.entries(result).reduce<readonly P[]>(
-    // @ts-expect-error ignore this for now
-    (flatten, [_key, r]) => !r ? flatten : [...flatten, ...r]
-    , [])
+  const flattenResult = Object.values(result).flatMap((entityResult) => {
+    if (Array.isArray(entityResult)) {
+      return entityResult;
+    } else if (
+      typeof entityResult === "object" &&
+      entityResult !== null &&
+      "items" in entityResult &&
+      Array.isArray((entityResult as any).items)  // Use 'any' to avoid TypeScript error
+    ) {
+      return (entityResult as any).items;
+    } else {
+      return [entityResult as P];
+    }
+  });
 
   return {
     error: Object.values(result_error).join('\n'),
@@ -59,6 +87,7 @@ export const batchToListPayload = <P>(payload: BatchPayload<Record<string, P> | 
     total: highest(result_total) ?? 0
   }
 }
+
 
 type Dependencies = {
   readonly call: Call
